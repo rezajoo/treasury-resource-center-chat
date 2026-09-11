@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: treasury-resource-center-chat
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: ANTHROPIC_MAX_TOKENS
+        value: "220"
+      - key: DEMO_ACCESS_PASSWORD
+        sync: false
