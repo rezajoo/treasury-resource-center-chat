@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { TREASURY_SYSTEM_PROMPT } from "@/lib/knowledge";
+import { languageSystemInstruction, type Locale } from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,10 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
 };
+
+function normalizeLocale(value: unknown): Locale {
+  return value === "es" ? "es" : "en";
+}
 
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -25,13 +30,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { messages?: ChatMessage[] };
+  let body: { messages?: ChatMessage[]; locale?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  const locale = normalizeLocale(body.locale);
   const messages = Array.isArray(body.messages) ? body.messages : [];
   if (messages.length === 0) {
     return NextResponse.json(
@@ -61,12 +67,13 @@ export async function POST(request: Request) {
   }
 
   const client = new Anthropic({ apiKey });
+  const system = `${TREASURY_SYSTEM_PROMPT}\n\n${languageSystemInstruction(locale)}`;
 
   try {
     const stream = await client.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: TREASURY_SYSTEM_PROMPT,
+      system,
       messages: sanitized,
     });
 

@@ -10,8 +10,11 @@ import {
 import {
   FOLLOW_UP_ACTIONS,
   QUICK_ACTIONS,
+  actionDescription,
+  actionLabel,
   type QuickAction,
 } from "@/lib/actions";
+import { UI_COPY, type Locale } from "@/lib/i18n";
 
 type Role = "user" | "assistant";
 
@@ -25,20 +28,61 @@ function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function LanguageToggle({
+  locale,
+  onChange,
+  disabled,
+}: {
+  locale: Locale;
+  onChange: (locale: Locale) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="lang-toggle" role="group" aria-label="Language">
+      <button
+        type="button"
+        className={locale === "en" ? "is-active" : undefined}
+        onClick={() => onChange("en")}
+        disabled={disabled}
+        aria-pressed={locale === "en"}
+      >
+        EN
+      </button>
+      <button
+        type="button"
+        className={locale === "es" ? "is-active" : undefined}
+        onClick={() => onChange("es")}
+        disabled={disabled}
+        aria-pressed={locale === "es"}
+      >
+        ES
+      </button>
+    </div>
+  );
+}
+
 export function ChatExperience() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const [locale, setLocale] = useState<Locale>("en");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const streamingRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
+  const localeRef = useRef<Locale>("en");
+
+  const copy = UI_COPY[locale];
 
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -72,6 +116,7 @@ export function ChatExperience() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          locale: localeRef.current,
           messages: nextMessages.map(({ role, content }) => ({ role, content })),
         }),
       });
@@ -160,11 +205,19 @@ export function ChatExperience() {
   return (
     <div className={`shell${showWelcome ? " is-welcome" : ""}`}>
       <main className="stage">
+        <div className="top-bar">
+          <LanguageToggle
+            locale={locale}
+            onChange={setLocale}
+            disabled={isStreaming}
+          />
+        </div>
+
         {!showWelcome && (
           <header className="stage-header">
             <div>
-              <p className="eyebrow">Treasury Resource Center</p>
-              <h2>Treasury services</h2>
+              <p className="eyebrow">{copy.eyebrow}</p>
+              <h2>{copy.servicesTitle}</h2>
             </div>
             <button
               type="button"
@@ -176,7 +229,7 @@ export function ChatExperience() {
               }}
               disabled={isStreaming}
             >
-              Start over
+              {copy.startOver}
             </button>
           </header>
         )}
@@ -191,14 +244,23 @@ export function ChatExperience() {
                 />
               </div>
               <div className="welcome-copy">
-                <p className="eyebrow">Treasury Resource Center</p>
-                <h2>
-                  An interactive conversational guide for your Treasury services
-                </h2>
+                <p className="eyebrow">{copy.eyebrow}</p>
+                <h2>{copy.welcomeTitle}</h2>
                 <p>
-                  This demo focuses on <strong>Truist One View</strong>. Choose
-                  that quick action below, or type your own question. Other
-                  topics are shown for demo context only.
+                  {locale === "es" ? (
+                    <>
+                      Esta demo se centra en <strong>Truist One View</strong>.
+                      Elige esa acción rápida abajo, o escribe tu propia
+                      pregunta. Los demás temas se muestran solo como contexto y
+                      no se pueden seleccionar en esta demo.
+                    </>
+                  ) : (
+                    <>
+                      This demo focuses on <strong>Truist One View</strong>.
+                      Choose that quick action below, or type your own question.
+                      Other topics are shown for demo context only.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -210,7 +272,7 @@ export function ChatExperience() {
                 data-role={message.role}
               >
                 <p className="role-label">
-                  {message.role === "user" ? "You" : "Guide"}
+                  {message.role === "user" ? copy.you : copy.guide}
                 </p>
                 <div className="bubble-body">
                   {message.content || (isStreaming ? "…" : "")}
@@ -225,8 +287,8 @@ export function ChatExperience() {
 
         {!showWelcome && (
           <div className="follow-up-panel">
-            <p className="eyebrow">Next steps</p>
-            <div className="follow-up-row" role="group" aria-label="Next steps">
+            <p className="eyebrow">{copy.nextSteps}</p>
+            <div className="follow-up-row" role="group" aria-label={copy.nextSteps}>
               {FOLLOW_UP_ACTIONS.map((action) => (
                 <button
                   key={action.id}
@@ -235,7 +297,7 @@ export function ChatExperience() {
                   onClick={() => runAction(action)}
                   disabled={isStreaming}
                 >
-                  {action.label}
+                  {actionLabel(action, locale)}
                 </button>
               ))}
             </div>
@@ -246,13 +308,10 @@ export function ChatExperience() {
           {showWelcome && (
             <>
               <div className="action-heading">
-                <p className="eyebrow">Quick actions</p>
+                <p className="eyebrow">{copy.quickActions}</p>
               </div>
-              <p className="demo-note">
-                Demo only — Truist One View is available. Other topics are shown
-                for context and are not clickable in this demo.
-              </p>
-              <div className="action-grid" role="group" aria-label="Quick actions">
+              <p className="demo-note">{copy.demoNote}</p>
+              <div className="action-grid" role="group" aria-label={copy.quickActions}>
                 {QUICK_ACTIONS.map((action) => {
                   const isDisabled = Boolean(action.disabled) || isStreaming;
                   return (
@@ -263,14 +322,10 @@ export function ChatExperience() {
                       onClick={() => runAction(action)}
                       disabled={isDisabled}
                       aria-disabled={isDisabled}
-                      title={
-                        action.disabled
-                          ? "Demo only — not available in this preview"
-                          : undefined
-                      }
+                      title={action.disabled ? copy.disabledTitle : undefined}
                     >
-                      <strong>{action.label}</strong>
-                      <span>{action.description}</span>
+                      <strong>{actionLabel(action, locale)}</strong>
+                      <span>{actionDescription(action, locale)}</span>
                     </button>
                   );
                 })}
@@ -280,7 +335,7 @@ export function ChatExperience() {
 
           <form className="composer" onSubmit={onSubmit}>
             <label className="sr-only" htmlFor="message">
-              Ask a question
+              {copy.askLabel}
             </label>
             <input
               id="message"
@@ -289,19 +344,16 @@ export function ChatExperience() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Ask about One View sign-in, mobile, admin…"
+              placeholder={copy.placeholder}
               disabled={isStreaming}
               autoComplete="off"
             />
             <button type="submit" disabled={isStreaming || !input.trim()}>
-              {isStreaming ? "…" : "Send"}
+              {isStreaming ? "…" : copy.send}
             </button>
           </form>
 
-          <p className="attribution">
-            Results generated by Claude. © {new Date().getFullYear()} Treasury
-            Resource Center demo.
-          </p>
+          <p className="attribution">{copy.attribution(new Date().getFullYear())}</p>
         </div>
       </main>
     </div>

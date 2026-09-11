@@ -38,3 +38,6 @@ next-env.d.ts
 
 # local doc extraction
 /tmp-docs/
+.vercel
+.env
+.env*.local
